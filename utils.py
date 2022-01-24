@@ -1,21 +1,26 @@
 # utils.py
 
-import numpy as np
-import random, sys, os, time, glob, math
+import glob
+import math
+import os
+import random
+import sys
+import time
 
 import matplotlib as mpl
+import numpy as np
+
 mpl.use("Agg")
+import random
+
+import IPython
 import matplotlib.pyplot as plt
-
-from skimage import io, color
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from skimage import color, io
 from torch.autograd import Variable
-import random
-import IPython
 
 # CRITICAL HYPER PARAMS
 EPSILON = 9e-3
@@ -63,7 +68,9 @@ def get_std_weight(images, n=5, alpha=0.5):
     with torch.no_grad():
         padded = F.pad(images, (n // 2, n // 2, n // 2, n // 2), mode="replicate")
         sums = F.conv2d(padded, kernel.to(DEVICE), groups=3, padding=0) * (1 / (n ** 2))
-        sums_2 = F.conv2d(padded ** 2, kernel.to(DEVICE), groups=3, padding=0) * (1 / (n ** 2))
+        sums_2 = F.conv2d(padded ** 2, kernel.to(DEVICE), groups=3, padding=0) * (
+            1 / (n ** 2)
+        )
         stds = (sums_2 - (sums ** 2) + 1e-5) ** alpha
     return stds.detach()
 
@@ -78,7 +85,7 @@ def gram(input):
 def zca(x):
     sigma = torch.mm(x.t(), x) / x.shape[0]
     U, S, _ = torch.svd(sigma)
-    pcs = torch.mm(torch.mm(U, torch.diag(1. / torch.sqrt(S + 1e-7))), U.t())
+    pcs = torch.mm(torch.mm(U, torch.diag(1.0 / torch.sqrt(S + 1e-7))), U.t())
 
     # Apply ZCA whitening
     whitex = torch.mm(x, pcs)
@@ -97,7 +104,9 @@ def color_normalize(x):
 
 
 def tve_loss(x):
-    return ((x[:, :-1, :] - x[:, 1:, :]) ** 2).sum() + ((x[:, :, :-1] - x[:, :, 1:]) ** 2).sum()
+    return ((x[:, :-1, :] - x[:, 1:, :]) ** 2).sum() + (
+        (x[:, :, :-1] - x[:, :, 1:]) ** 2
+    ).sum()
 
 
 def batch(datagen, batch_size=32):
@@ -127,33 +136,39 @@ def elapsed(times=[time.time()]):
     return times[-1] - times[-2]
 
 
-def create_heatmap(data, labels, filename='output/heatmap.jpg', x_label="", y_label=""):
-	fig, ax = plt.subplots()
-	im = ax.imshow(data)
+def create_heatmap(data, labels, filename="output/heatmap.jpg", x_label="", y_label=""):
+    fig, ax = plt.subplots()
+    im = ax.imshow(data)
 
-	# We want to show all ticks...
-	ax.set_xticks(np.arange(len(labels)))
-	ax.set_yticks(np.arange(len(labels)))
-	# ... and label them with the respective list entries
-	ax.set_xticklabels(labels)
-	ax.set_yticklabels(labels)
+    # We want to show all ticks...
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    # ... and label them with the respective list entries
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(labels)
 
-	# Rotate the tick labels and set their alignment.
-	plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-	         rotation_mode="anchor")
+    # Rotate the tick labels and set their alignment.
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
-	# Loop over data dimensions and create text annotations.
-	for i in range(len(labels)):
-	    for j in range(len(labels)):
-	        text = ax.text(j, i, "{0:.2f}".format(round(data[i,j],2)),
-	                       ha="center", va="center", color="w")
+    # Loop over data dimensions and create text annotations.
+    for i in range(len(labels)):
+        for j in range(len(labels)):
+            text = ax.text(
+                j,
+                i,
+                "{0:.2f}".format(round(data[i, j], 2)),
+                ha="center",
+                va="center",
+                color="w",
+            )
 
-	ax.set_title("Affinity matrix")
-	fig.tight_layout()
-	plt.savefig(filename)
-	plt.cla()
-	plt.clf()
-	plt.close()
+    ax.set_title("Affinity matrix")
+    fig.tight_layout()
+    plt.savefig(filename)
+    plt.cla()
+    plt.clf()
+    plt.close()
+
 
 def gaussian_filter(kernel_size=5, sigma=1.0):
 
@@ -164,14 +179,14 @@ def gaussian_filter(kernel_size=5, sigma=1.0):
     y_grid = x_grid.t()
     xy_grid = torch.stack([x_grid, y_grid], dim=-1)
 
-    mean = (kernel_size - 1) / 2.
-    variance = sigma ** 2.
+    mean = (kernel_size - 1) / 2.0
+    variance = sigma ** 2.0
 
     # Calculate the 2-dimensional gaussian kernel which is
     # the product of two gaussian distributions for two different
     # variables (in this case called x and y)
-    gaussian_kernel = (1. / (2. * math.pi * variance)) * torch.exp(
-        -torch.sum((xy_grid - mean) ** 2., dim=-1) / (2 * variance)
+    gaussian_kernel = (1.0 / (2.0 * math.pi * variance)) * torch.exp(
+        -torch.sum((xy_grid - mean) ** 2.0, dim=-1) / (2 * variance)
     )
     # Make sure sum of values in gaussian kernel equals 1.
     gaussian_kernel = gaussian_kernel.to(DEVICE) / torch.sum(gaussian_kernel).to(DEVICE)

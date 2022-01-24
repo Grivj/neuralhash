@@ -1,23 +1,22 @@
-
 from __future__ import print_function
 
-import numpy as np
-import random, sys, os, timeit, math
+import math
+import os
+import random
+import sys
+import timeit
+from io import BytesIO
 
+import IPython
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
+from PIL import Image
 from torch.autograd import Variable
 
 from utils import *
-
-import IPython
-
-from scipy.ndimage import filters
-
-import torchvision
-from io import BytesIO
-from PIL import Image
 
 
 def affine(data, x=[1, 0, 0], y=[0, 1, 0]):
@@ -85,7 +84,13 @@ def resize_rect(x, ratio=0.8):
     y_scale = x_scale / ratio
 
     grid = F.affine_grid(affine(x), size=x.size())
-    grid = torch.cat([grid[:, :, :, 0].unsqueeze(3) * y_scale, grid[:, :, :, 1].unsqueeze(3) * x_scale], dim=3)
+    grid = torch.cat(
+        [
+            grid[:, :, :, 0].unsqueeze(3) * y_scale,
+            grid[:, :, :, 1].unsqueeze(3) * x_scale,
+        ],
+        dim=3,
+    )
     img = F.grid_sample(x, grid, padding_mode="border")
     return img
 
@@ -93,7 +98,10 @@ def resize_rect(x, ratio=0.8):
 @sample(0.05, 0.2)
 def color_jitter(x, jitter=0.1):
     R, G, B = (random.uniform(1 - jitter, 1 + jitter) for i in range(0, 3))
-    x = torch.cat([x[:, 0].unsqueeze(1) * R, x[:, 1].unsqueeze(1) * G, x[:, 2].unsqueeze(1) * B], dim=1)
+    x = torch.cat(
+        [x[:, 0].unsqueeze(1) * R, x[:, 1].unsqueeze(1) * G, x[:, 2].unsqueeze(1) * B],
+        dim=1,
+    )
     return x.clamp(min=0, max=1)
 
 
@@ -202,7 +210,10 @@ def whiteout(x, scale=0.1, n=6):
 
     for i in range(0, n):
         w, h = int(scale * x.shape[2]), int(scale * x.shape[3])
-        sx, sy = (random.randrange(0, x.shape[2] - w), random.randrange(0, x.shape[3] - h))
+        sx, sy = (
+            random.randrange(0, x.shape[2] - w),
+            random.randrange(0, x.shape[3] - h),
+        )
 
         mask = torch.ones_like(x)
         mask[:, :, sx : (sx + w), sy : (sy + h)] = 0.0
@@ -272,7 +283,9 @@ def blur(x, blur_val=4):
     # downsampling
     out_size_h = H // max(int(blur_val), 2)
     out_size_w = W // max(int(blur_val), 2)
-    grid = F.affine_grid(affine(x), size=torch.Size((x.shape[0], 3, out_size_h, out_size_w)))
+    grid = F.affine_grid(
+        affine(x), size=torch.Size((x.shape[0], 3, out_size_h, out_size_w))
+    )
     x = F.grid_sample(x, grid, padding_mode="border")
 
     # upsampling
@@ -382,7 +395,9 @@ if __name__ == "__main__":
     ]:
         transformed = im.numpy(transform.random(img).squeeze())
         plt.imsave(f"output/encoded_{transform.__name__}.jpg", transformed)
-        time = timeit.timeit(lambda: im.numpy(transform.random(img).squeeze()), number=40)
+        time = timeit.timeit(
+            lambda: im.numpy(transform.random(img).squeeze()), number=40
+        )
         x_min, x_max = transform.plot_range
         print(f"{transform.__name__}: ({x_min} - {x_max}) {time:0.5f}")
 

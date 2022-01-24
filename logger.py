@@ -1,17 +1,20 @@
-
-import numpy as np
 import matplotlib as mpl
+import numpy as np
 
 mpl.use("Agg")
-import matplotlib.pyplot as plt
-import random, sys, os, json, math
+import json
+import math
+import os
+import random
+import sys
 
+import IPython
+import matplotlib.pyplot as plt
 import torch
-from torchvision import datasets, transforms
 import visdom
+from torchvision import datasets, transforms
 
 from utils import *
-import IPython
 
 
 class BaseLogger(object):
@@ -86,7 +89,10 @@ class VisdomLogger(BaseLogger):
         self.env = kwargs.pop("env", "main")
         print(f"Logging to environment {self.env}")
         self.visdom = visdom.Visdom(
-            server="http://" + self.server, port=self.port, env=self.env, use_incoming_socket=False
+            server="http://" + self.server,
+            port=self.port,
+            env=self.env,
+            use_incoming_socket=False,
         )
         self.visdom.delete_env(self.env)
         self.windows = {}
@@ -123,7 +129,9 @@ class VisdomLogger(BaseLogger):
 
     def images(self, data, image_name, opts={}, resize=64):
 
-        transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize(resize), transforms.ToTensor()])
+        transform = transforms.Compose(
+            [transforms.ToPILImage(), transforms.Resize(resize), transforms.ToTensor()]
+        )
         data = torch.stack([transform(x) for x in data.cpu()])
         data = data.data.cpu().numpy()
 

@@ -1,21 +1,21 @@
-
 from __future__ import print_function
 
-import numpy as np
-import random, sys, os, json
+import json
+import os
+import random
+import sys
 
+import IPython
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
-
 from torchvision import models
-from utils import *
+
 import transforms
-
-import IPython
-
+from utils import *
 
 """ Base model class. """
 
@@ -127,7 +127,9 @@ class DecodingNet(BaseModel):
 
     def forward(self, x):
 
-        x = torch.cat([self.distribution(x).unsqueeze(1) for i in range(0, self.n)], dim=1)
+        x = torch.cat(
+            [self.distribution(x).unsqueeze(1) for i in range(0, self.n)], dim=1
+        )
         B, N, C, H, W = x.shape
 
         x = torch.cat(
@@ -142,7 +144,10 @@ class DecodingNet(BaseModel):
         x = x.view(B * N, C, H, W)
         x = self.features(x)
 
-        x = torch.cat([F.avg_pool2d(x, (x.shape[2] // 2)), F.max_pool2d(x, (x.shape[2] // 2))], dim=1)
+        x = torch.cat(
+            [F.avg_pool2d(x, (x.shape[2] // 2)), F.max_pool2d(x, (x.shape[2] // 2))],
+            dim=1,
+        )
         x = x.view(x.size(0), -1)
         x = (x - x.mean(dim=1, keepdim=True)) / (x.std(dim=1, keepdim=True))
         x = self.classifier(x)
@@ -173,7 +178,9 @@ class DecodingGramNet(BaseModel):
 
     def forward(self, x):
 
-        x = torch.cat([self.distribution(x).unsqueeze(1) for i in range(0, self.n)], dim=1)
+        x = torch.cat(
+            [self.distribution(x).unsqueeze(1) for i in range(0, self.n)], dim=1
+        )
         B, N, C, H, W = x.shape
 
         x = torch.cat(
@@ -233,7 +240,9 @@ class TinyDecodingNet(BaseModel):
         self.to(DEVICE)
 
     def forward(self, x):
-        x = torch.cat([self.distribution(x).unsqueeze(1) for i in range(0, self.n)], dim=1)
+        x = torch.cat(
+            [self.distribution(x).unsqueeze(1) for i in range(0, self.n)], dim=1
+        )
         B, N, C, H, W = x.shape
 
         x = torch.cat(
@@ -285,7 +294,14 @@ class DilatedDecodingNet(BaseModel):
         if USE_CUDA:
             self.cuda()
 
-    def forward(self, x, verbose=False, distribution=transforms.identity, n=1, return_variance=False):
+    def forward(
+        self,
+        x,
+        verbose=False,
+        distribution=transforms.identity,
+        n=1,
+        return_variance=False,
+    ):
 
         # make sure to center the image and divide by standard deviation
         x = torch.cat(

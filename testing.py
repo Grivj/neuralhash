@@ -1,28 +1,28 @@
-
-import random, sys, os, glob, pickle
-import argparse, tqdm
+import argparse
+import glob
+import os
+import pickle
+import random
+import sys
 
 import matplotlib as mpl
+import tqdm
 
 mpl.use("Agg")
+import IPython
 import matplotlib.pyplot as plt
 import numpy as np
-from fire import Fire
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from fire import Fire
 
-from utils import *
 import transforms
-
 from encoding import encode_binary
-from models import BaseModel, DecodingModel, DataParallelModel
 from logger import Logger, VisdomLogger
-
-import IPython
-
+from models import BaseModel, DataParallelModel, DecodingModel
+from utils import *
 
 # LOGGING
 logger = VisdomLogger("test", server="35.230.67.129", port=8000, env=JOB)
@@ -38,8 +38,12 @@ def sweep(images, targets, model, transform, name, samples=10):
         transformed = transform(images, val)
         predictions = model(transformed).mean(dim=1).cpu().data.numpy()
 
-        mse_loss = np.mean([binary.mse_dist(x, y) for x, y in zip(predictions, targets)])
-        binary_loss = np.mean([binary.distance(x, y) for x, y in zip(predictions, targets)])
+        mse_loss = np.mean(
+            [binary.mse_dist(x, y) for x, y in zip(predictions, targets)]
+        )
+        binary_loss = np.mean(
+            [binary.distance(x, y) for x, y in zip(predictions, targets)]
+        )
         results.append((val, binary_loss, mse_loss))
 
     x, bits_off, mse = (np.array(x) for x in zip(*results))
@@ -47,7 +51,9 @@ def sweep(images, targets, model, transform, name, samples=10):
     print(transform.__name__, np.mean(bits_off))
     logger.update(transform.__name__, np.mean(bits_off))
 
-    np.savez_compressed(f"output/{name}_{transform.__name__}.npz", x=x, bits_off=bits_off, mse=mse)
+    np.savez_compressed(
+        f"output/{name}_{transform.__name__}.npz", x=x, bits_off=bits_off, mse=mse
+    )
     # logger.viz(f"{name}_{transform_name}", method='line',
     #         Y=np.column_stack((32*mse, bits_off)),
     #         X=np.column_stack((x, x)),
@@ -75,7 +81,11 @@ def test_transforms(model=None, image_files=VAL_FILES, name="test", max_iter=250
     if not isinstance(model, BaseModel):
         print(f"Loading model from {model}")
         model = DataParallelModel(
-            DecodingModel.load(distribution=transforms.new_dist, n=ENCODING_DIST_SIZE, weights_file=model)
+            DecodingModel.load(
+                distribution=transforms.new_dist,
+                n=ENCODING_DIST_SIZE,
+                weights_file=model,
+            )
         )
 
     images = [im.load(image) for image in image_files]
@@ -84,14 +94,28 @@ def test_transforms(model=None, image_files=VAL_FILES, name="test", max_iter=250
     model.eval()
 
     encoded_images = encode_binary(
-        images, targets, model, n=ENCODING_DIST_SIZE, verbose=True, max_iter=max_iter, use_weighting=True
+        images,
+        targets,
+        model,
+        n=ENCODING_DIST_SIZE,
+        verbose=True,
+        max_iter=max_iter,
+        use_weighting=True,
     )
 
     logger.images(images, "original_images", resize=196)
     logger.images(encoded_images, "encoded_images", resize=196)
-    for img, encoded_im, filename, target in zip(images, encoded_images, image_files, targets):
-        im.save(im.numpy(img), file=f"output/_{binary.str(target)}_original_{filename.split('/')[-1]}")
-        im.save(im.numpy(encoded_im), file=f"output/_{binary.str(target)}_encoded_{filename.split('/')[-1]}")
+    for img, encoded_im, filename, target in zip(
+        images, encoded_images, image_files, targets
+    ):
+        im.save(
+            im.numpy(img),
+            file=f"output/_{binary.str(target)}_original_{filename.split('/')[-1]}",
+        )
+        im.save(
+            im.numpy(encoded_im),
+            file=f"output/_{binary.str(target)}_encoded_{filename.split('/')[-1]}",
+        )
 
     model.set_distribution(transforms.identity, n=1)
     predictions = model(encoded_images).mean(dim=1).cpu().data.numpy()
@@ -115,7 +139,9 @@ def test_transforms(model=None, image_files=VAL_FILES, name="test", max_iter=250
         transforms.contrast,
         transforms.flip,
     ]:
-        sweep(encoded_images, targets, model, transform=transform, name=name, samples=60)
+        sweep(
+            encoded_images, targets, model, transform=transform, name=name, samples=60
+        )
 
     # sweep(
     #     encoded_images,
@@ -245,7 +271,11 @@ def test_transforms(model=None, image_files=VAL_FILES, name="test", max_iter=250
 def evaluate(model, image, target, test_transforms=False):
 
     if not isinstance(model, BaseModel):
-        model = DataParallelModel(DecodingModel.load(distribution=transforms.identity, n=1, weights_file=model))
+        model = DataParallelModel(
+            DecodingModel.load(
+                distribution=transforms.identity, n=1, weights_file=model
+            )
+        )
 
     image = im.torch(im.load(image)).unsqueeze(0)
     target = binary.parse(str(target))
@@ -256,14 +286,20 @@ def evaluate(model, image, target, test_transforms=False):
     #         Distance: {binary.distance(target, prediction)}")
 
     if test_transforms:
-        sweep(image, [target], model, transform=transforms.rotate, name="eval", samples=60)
+        sweep(
+            image, [target], model, transform=transforms.rotate, name="eval", samples=60
+        )
 
 
 def test_transfer(model=None, image_files=VAL_FILES, max_iter=250):
     if not isinstance(model, BaseModel):
         print(f"Loading model from {model}")
         model = DataParallelModel(
-            DecodingModel.load(distribution=transforms.encoding, n=ENCODING_DIST_SIZE, weights_file=model)
+            DecodingModel.load(
+                distribution=transforms.encoding,
+                n=ENCODING_DIST_SIZE,
+                weights_file=model,
+            )
         )
 
     images = [im.load(image) for image in image_files]
@@ -295,25 +331,45 @@ def test_transfer(model=None, image_files=VAL_FILES, max_iter=250):
     score_matrix = np.zeros((len(transform_list), len(transform_list)))
 
     for i, t1 in enumerate(transform_list):
-            
+
         model.set_distribution(lambda x: t1.random(x), n=ENCODING_DIST_SIZE)
         encoded_images = encode_binary(
-            images, targets, model, n=ENCODING_DIST_SIZE, verbose=True, max_iter=max_iter, use_weighting=True
+            images,
+            targets,
+            model,
+            n=ENCODING_DIST_SIZE,
+            verbose=True,
+            max_iter=max_iter,
+            use_weighting=True,
         )
 
         model.set_distribution(transforms.identity, n=1)
-        t1_error = sweep(encoded_images, targets, model, transform=t1, name=f"{t1.__name__}", samples=60)
-        
-        for j, t2 in enumerate(transform_list):
-            if t1.__name__ == t2.__name__: 
-                score_matrix[i,j] = t1_error
-                continue
-            t2_error = sweep(encoded_images, targets, model, transform=t2, name=f'{t1.__name__}->{t2.__name__}', samples=60)
-            score_matrix[i,j] = t2_error
+        t1_error = sweep(
+            encoded_images,
+            targets,
+            model,
+            transform=t1,
+            name=f"{t1.__name__}",
+            samples=60,
+        )
 
-            print(f'{t1.__name__} --> {t2.__name__}: {t2_error}')
-    np.save('labels', labels)
-    np.save('score_matrix', score_matrix)
+        for j, t2 in enumerate(transform_list):
+            if t1.__name__ == t2.__name__:
+                score_matrix[i, j] = t1_error
+                continue
+            t2_error = sweep(
+                encoded_images,
+                targets,
+                model,
+                transform=t2,
+                name=f"{t1.__name__}->{t2.__name__}",
+                samples=60,
+            )
+            score_matrix[i, j] = t2_error
+
+            print(f"{t1.__name__} --> {t2.__name__}: {t2_error}")
+    np.save("labels", labels)
+    np.save("score_matrix", score_matrix)
     create_heatmap(score_matrix, labels)
 
 
